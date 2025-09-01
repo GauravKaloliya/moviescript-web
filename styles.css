@@ -49,7 +49,7 @@ body {
 .logo i {
     font-size: 3rem;
     color: #ffffff;
-    filter: drop-shadow(0 0 20px #ff0080);
+    filter: drop-shadow(0 0 20px #ffffff);
 }
 
 .logo h1 {
@@ -63,13 +63,13 @@ body {
 
 /* Main Content */
 .main-content {
-    margin-bottom: 3rem;
+    margin-bottom: 1rem;
 }
 
 .tagline h2 {
     font-size: 1.5rem;
     color: #ffffff;
-    margin-bottom: 1rem;
+    margin-bottom: 2rem;
     font-weight: 600;
     animation: fadeInUp 1s ease-out 0.2s both;
 }
