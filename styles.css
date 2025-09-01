@@ -20,7 +20,11 @@ body {
     justify-content: center;
     padding: 2rem;
     position: relative;
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%);
+    background: 
+        radial-gradient(ellipse at 50% 30%, rgba(20, 40, 60, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(30, 50, 70, 0.2) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(25, 45, 65, 0.25) 0%, transparent 50%),
+        linear-gradient(180deg, rgba(15, 20, 25, 0.95) 0%, rgba(10, 15, 20, 0.98) 100%);
 }
 
 .content {
@@ -44,18 +48,17 @@ body {
 
 .logo i {
     font-size: 3rem;
-    color: #ff0080;
+    color: #ffffff;
     filter: drop-shadow(0 0 20px rgba(255, 0, 128, 0.4));
 }
 
 .logo h1 {
-    font-size: 3.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #ff0080, #ff6ec7, #8a2be2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.02em;
+    font-size: 4rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 /* Main Content */
