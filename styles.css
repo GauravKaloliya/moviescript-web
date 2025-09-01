@@ -43,7 +43,6 @@ body {
     justify-content: center;
     gap: 1rem;
     margin-bottom: 3rem;
-    animation: fadeInDown 1s ease-out 0.2s both;
 }
 
 .logo i {
