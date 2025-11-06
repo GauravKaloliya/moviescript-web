@@ -17,21 +17,17 @@ from sentence_transformers import SentenceTransformer
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("moviescript")
 
-
-# 1) sentence_transformers.model_card + SentenceTransformerModelCardData
-# 1) sentence_transformers.model_card + SentenceTransformerModelCardData
+# ==========================================================
+# 🧩 Fix for sentence_transformers.model_card import
+# ==========================================================
 fake_model_card = types.ModuleType("sentence_transformers.model_card")
 
 class SentenceTransformerModelCardData:
     def __init__(self, *args, **kwargs):
-        # Minimal placeholder used only for unpickling legacy objects
         self.data = {}
 
-# Stub missing functions/classes to prevent import errors
 fake_model_card.SentenceTransformerModelCardData = SentenceTransformerModelCardData
 fake_model_card.generate_model_card = lambda *args, **kwargs: None
-
-# Register fake module
 sys.modules["sentence_transformers.model_card"] = fake_model_card
 
 # ==========================================================
@@ -59,7 +55,7 @@ COMMON_KEYWORDS = [
 ]
 
 # ==========================================================
-# 📦 Hugging Face Downloader
+# 📦 Hugging Face Downloader (Lazy use)
 # ==========================================================
 REPO_ID = os.getenv("MOVIESCRIPT_REPO", "gaurav0809225/moviescript")
 MODEL_FILE = os.getenv("MOVIESCRIPT_MODEL_FILE", "all_models.pkl")
@@ -67,50 +63,62 @@ CLASS_FILE = os.getenv("MOVIESCRIPT_CLASS_FILE", "MovieScript.py")
 
 def ensure_downloaded(repo_id, filename):
     """Download a file from Hugging Face Hub if not cached locally."""
-    
     log.info(f"📥 Downloading {filename} from {repo_id}...")
     local_path = hf_hub_download(repo_id=repo_id, filename=filename)
     log.info(f"✅ Downloaded {filename} → {local_path}")
     return local_path
 
-# Download model + class if needed
-movie_class_path = ensure_downloaded(REPO_ID, CLASS_FILE)
-movie_model_path = ensure_downloaded(REPO_ID, MODEL_FILE)
+# ==========================================================
+# 🧠 Lazy Model Initialization
+# ==========================================================
+movie_model = None
+MovieScript = None
 
-# ==========================================================
-# 🧠 Import MovieScript dynamically
-# ==========================================================
-spec = importlib.util.spec_from_file_location("MovieScript", movie_class_path)
-MovieScriptModule = importlib.util.module_from_spec(spec)
-sys.modules["MovieScript"] = MovieScriptModule
-spec.loader.exec_module(MovieScriptModule)
-MovieScript = MovieScriptModule.MovieScript
+def load_movie_model():
+    """Load the MovieScript model lazily on first request."""
+    global movie_model, MovieScript
+    if movie_model is not None:
+        return movie_model
 
-# ==========================================================
-# ✅ Initialize Model
-# ==========================================================
-try:
-    movie_model = MovieScript(movie_model_path)
-    log.info(f"✅ MovieScript initialized from {movie_model_path}")
-except Exception as e:
-    log.exception("❌ Failed to initialize MovieScript.")
-    movie_model = None
+    log.info("🧩 Lazy loading MovieScript model...")
+
+    # Download only when needed
+    movie_class_path = ensure_downloaded(REPO_ID, CLASS_FILE)
+    movie_model_path = ensure_downloaded(REPO_ID, MODEL_FILE)
+
+    # Dynamically import MovieScript
+    spec = importlib.util.spec_from_file_location("MovieScript", movie_class_path)
+    MovieScriptModule = importlib.util.module_from_spec(spec)
+    sys.modules["MovieScript"] = MovieScriptModule
+    spec.loader.exec_module(MovieScriptModule)
+    MovieScript = MovieScriptModule.MovieScript
+
+    try:
+        movie_model = MovieScript(movie_model_path)
+        log.info(f"✅ MovieScript initialized from {movie_model_path}")
+    except Exception as e:
+        log.exception("❌ Failed to initialize MovieScript.")
+        movie_model = None
+
+    return movie_model
 
 # ==========================================================
 # ✅ Prediction Wrapper
 # ==========================================================
 def safe_predict_with_pipeline(user_input: dict):
     """Safely call MovieScript.predict and normalize output."""
-    if movie_model is None:
+    model = load_movie_model()
+    if model is None:
         raise RuntimeError("MovieScript model not loaded.")
 
-    preds = movie_model.predict(
+    preds = model.predict(
         title=user_input["title"],
         overview=user_input["overview"],
         genres=user_input["genres"],
         keywords=user_input["keywords"],
         budget=user_input["budget"]
     )
+
     def _normalize(v):
         if isinstance(v, np.generic):
             return v.item()
@@ -133,12 +141,10 @@ def submit():
     keywords = request.form.getlist('keywords')
     custom_keywords = request.form.get('custom_keywords', '').strip()
 
-    # ✅ Combine built-in + custom keywords (space-separated)
     all_keywords = [*keywords]
     if custom_keywords:
         all_keywords += [k.strip() for k in custom_keywords.split() if k.strip()]
 
-    # ✅ Validation
     errors = []
     if not title or len(title) < 3:
         errors.append("🎬 Title must be at least 3 characters.")
@@ -193,4 +199,4 @@ def submit():
 # 🚀 Run Server
 # ==========================================================
 if __name__ == "__main__":
-    app.run(debug=True, port=int(os.environ.get("PORT", 5001)))
+    app.run(debug=False, port=int(os.environ.get("PORT", 5001)))
