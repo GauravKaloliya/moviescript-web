@@ -2,7 +2,7 @@ import os
 import sys
 import types
 import logging
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for, session
 from flask_wtf import CSRFProtect
 from flask_cors import CORS
 import numpy as np
@@ -11,15 +11,9 @@ import importlib.util
 import joblib
 from sentence_transformers import SentenceTransformer
 
-# ==========================================================
-# 🔧 Logging Setup
-# ==========================================================
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("moviescript")
 
-# ==========================================================
-# 🧩 Fix for sentence_transformers.model_card import
-# ==========================================================
 fake_model_card = types.ModuleType("sentence_transformers.model_card")
 
 class SentenceTransformerModelCardData:
@@ -30,17 +24,20 @@ fake_model_card.SentenceTransformerModelCardData = SentenceTransformerModelCardD
 fake_model_card.generate_model_card = lambda *args, **kwargs: None
 sys.modules["sentence_transformers.model_card"] = fake_model_card
 
-# ==========================================================
-# ⚙️ Flask Setup
-# ==========================================================
 app = Flask(__name__, template_folder="templates", static_folder="static")
-app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-prod")
+app.secret_key = os.environ.get("SECRET_KEY")
+
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=600  # 10 minutes
+)
+
 csrf = CSRFProtect(app)
 CORS(app)
 
-# ==========================================================
-# 🎭 UI Constants
-# ==========================================================
+
+
 GENRES = [
     'Action', 'Adventure', 'Animated', 'Animation', 'Biography', 'Comedy', 'Crime',
     'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror', 'Movie', 'Music',
@@ -54,63 +51,43 @@ COMMON_KEYWORDS = [
     'Horror', 'Musical'
 ]
 
-# ==========================================================
-# 📦 Hugging Face Downloader (Lazy use)
-# ==========================================================
 REPO_ID = os.getenv("MOVIESCRIPT_REPO", "gaurav0809225/moviescript")
 MODEL_FILE = os.getenv("MOVIESCRIPT_MODEL_FILE", "all_models.pkl")
 CLASS_FILE = os.getenv("MOVIESCRIPT_CLASS_FILE", "MovieScript.py")
 
 def ensure_downloaded(repo_id, filename):
-    """Download a file from Hugging Face Hub if not cached locally."""
     log.info(f"📥 Downloading {filename} from {repo_id}...")
     local_path = hf_hub_download(repo_id=repo_id, filename=filename)
     log.info(f"✅ Downloaded {filename} → {local_path}")
     return local_path
 
-# ==========================================================
-# 🧠 Lazy Model Initialization
-# ==========================================================
 movie_model = None
 MovieScript = None
 
 def load_movie_model():
-    """Load the MovieScript model lazily on first request."""
     global movie_model, MovieScript
     if movie_model is not None:
         return movie_model
-
     log.info("🧩 Lazy loading MovieScript model...")
-
-    # Download only when needed
     movie_class_path = ensure_downloaded(REPO_ID, CLASS_FILE)
     movie_model_path = ensure_downloaded(REPO_ID, MODEL_FILE)
-
-    # Dynamically import MovieScript
     spec = importlib.util.spec_from_file_location("MovieScript", movie_class_path)
     MovieScriptModule = importlib.util.module_from_spec(spec)
     sys.modules["MovieScript"] = MovieScriptModule
     spec.loader.exec_module(MovieScriptModule)
     MovieScript = MovieScriptModule.MovieScript
-
     try:
         movie_model = MovieScript(movie_model_path)
         log.info(f"✅ MovieScript initialized from {movie_model_path}")
     except Exception as e:
         log.exception("❌ Failed to initialize MovieScript.")
         movie_model = None
-
     return movie_model
 
-# ==========================================================
-# ✅ Prediction Wrapper
-# ==========================================================
 def safe_predict_with_pipeline(user_input: dict):
-    """Safely call MovieScript.predict and normalize output."""
     model = load_movie_model()
     if model is None:
         raise RuntimeError("MovieScript model not loaded.")
-
     preds = model.predict(
         title=user_input["title"],
         overview=user_input["overview"],
@@ -118,16 +95,12 @@ def safe_predict_with_pipeline(user_input: dict):
         keywords=user_input["keywords"],
         budget=user_input["budget"]
     )
-
     def _normalize(v):
         if isinstance(v, np.generic):
             return v.item()
         return v
     return {k: _normalize(v) for k, v in preds.items()}
 
-# ==========================================================
-# 🌐 Flask Routes
-# ==========================================================
 @app.route("/")
 def index():
     return render_template('index.html', genres=GENRES, keywords=COMMON_KEYWORDS)
@@ -140,11 +113,9 @@ def submit():
     budget_raw = request.form.get('budget', '').strip()
     keywords = request.form.getlist('keywords')
     custom_keywords = request.form.get('custom_keywords', '').strip()
-
     all_keywords = [*keywords]
     if custom_keywords:
         all_keywords += [k.strip() for k in custom_keywords.split() if k.strip()]
-
     errors = []
     if not title or len(title) < 3:
         errors.append("🎬 Title must be at least 3 characters.")
@@ -152,7 +123,6 @@ def submit():
         errors.append("📝 Overview must contain at least 80 characters.")
     if not genres:
         errors.append("🎭 Please select at least one genre.")
-
     try:
         budget_val = float(budget_raw.replace(",", ""))
         if not (1e5 <= budget_val <= 1e10):
@@ -162,15 +132,9 @@ def submit():
         errors.append("💵 Invalid numeric budget value.")
     if not all_keywords:
         errors.append("🔑 Please enter at least one keyword.")
-
     if errors:
-        return render_template(
-            'index.html',
-            errors=errors,
-            genres=GENRES,
-            keywords=COMMON_KEYWORDS
-        )
-
+        return render_template('index.html', errors=errors, genres=GENRES, keywords=COMMON_KEYWORDS)
+    
     user_input = {
         "title": title,
         "overview": overview,
@@ -185,18 +149,20 @@ def submit():
         log.info(f"✅ Predictions: {preds}")
     except Exception as e:
         log.exception("Prediction error:")
-        return render_template(
-            'index.html',
-            errors=[f"Prediction error: {e}"],
-            genres=GENRES,
-            keywords=COMMON_KEYWORDS
-        )
-
+        return render_template('index.html', errors=[f"Prediction error: {e}"], genres=GENRES, keywords=COMMON_KEYWORDS)
     data = {"title": title}
-    return render_template('result.html', data=data, predictions=preds)
 
-# ==========================================================
-# 🚀 Run Server
-# ==========================================================
+    session["result"] = {"data": data, "predictions": preds}
+    return redirect(url_for("result_page"))
+
+@app.route("/result")
+def result_page():
+    if "result" not in session:
+        return redirect(url_for("index"))
+    result = session.pop("result")
+    return render_template("result.html", data=result["data"], predictions=result["predictions"])
+
 if __name__ == "__main__":
-    app.run(debug=False, port=int(os.environ.get("PORT", 5001)))
+    port = int(os.environ.get("PORT", 10000))
+    log.info(f"🚀 Starting MovieScript Flask app on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
