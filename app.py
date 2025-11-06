@@ -1,16 +1,14 @@
 import os
 import sys
 import types
-import joblib
 import logging
-from datetime import datetime
 from flask import Flask, render_template, request
 from flask_wtf import CSRFProtect
 from flask_cors import CORS
 import numpy as np
-import torch
 from huggingface_hub import hf_hub_download
 import importlib.util
+import joblib
 
 # ==========================================================
 # 🔧 Logging Setup
@@ -18,11 +16,14 @@ import importlib.util
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("moviescript")
 
-# Fix legacy SentenceTransformer pickles
+
+# 1) sentence_transformers.model_card + SentenceTransformerModelCardData
 fake_model_card = types.ModuleType("sentence_transformers.model_card")
 class SentenceTransformerModelCardData:
     def __init__(self, *args, **kwargs):
+        # Minimal placeholder used only for unpickling legacy objects
         self.data = {}
+
 fake_model_card.SentenceTransformerModelCardData = SentenceTransformerModelCardData
 sys.modules["sentence_transformers.model_card"] = fake_model_card
 
