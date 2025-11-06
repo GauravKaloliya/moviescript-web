@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Results - moviescript.online</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8f9fa;
+            color: #222;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            background: #fff;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.08);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .site-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #007bff;
+        }
+        .movie-info {
+            margin-bottom: 2rem;
+        }
+        .movie-info h2 {
+            margin-bottom: 0.8rem;
+            color: #222;
+        }
+        .movie-info p {
+            margin: 0.3rem 0;
+            font-size: 1rem;
+            color: #333;
+        }
+        .predictions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .prediction-card {
+            border-radius: 12px;
+            background: #f9f9f9;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease-in-out;
+        }
+        .prediction-card:hover {
+            transform: translateY(-5px);
+        }
+        .prediction-icon {
+            font-size: 2rem;
+            margin-bottom: 0.3rem;
+        }
+        .prediction-label {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        .prediction-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+        .prediction-category {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        .info-text {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #555;
+            background: rgba(255,255,255,0.6);
+            padding: 6px 10px;
+            border-radius: 6px;
+            line-height: 1.4;
+        }
+        /* Hit/Flop box styles */
+        .success-box {
+            border: 3px solid transparent;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 0 15px rgba(0,0,0,0.08);
+        }
+        .hit-box {
+            border-color: #00c853;
+            background: rgba(0,200,83,0.08);
+        }
+        .flop-box {
+            border-color: #d32f2f;
+            background: rgba(211,47,47,0.08);
+        }
+        .submit-wrapper {
+            margin-top: 2.5rem;
+            text-align: center;
+        }
+        .submit-btn {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            padding: 0.9rem 2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background 0.3s ease-in-out;
+        }
+        .submit-btn:hover {
+            background: #0056b3;
+        }
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: #666;
+        }
+
+        .loading-banner {
+            text-align: center;
+            font-style: italic;
+            background: #e8f0fe;
+            color: #333;
+            padding: 12px 18px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #c7dafd;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="site-title">🎬 Movie Success Prediction Results</h1>
+        </header>
+
+        {% if not predictions %}
+        <div class="loading-banner">
+            ⚙️ Model is initializing... This may take <b>10–15 seconds</b> during the first load.
+        </div>
+        {% else %}
+        <main class="results-section">
+            <div class="movie-info">
+                <h2>{{ data.title }} 2025</h2>
+            </div>
+
+            <div class="predictions-grid">
+
+                <!-- 🎯 Success Probability -->
+                <div class="prediction-card success-box {% if 'Hit' in predictions.success_category %}hit-box{% else %}flop-box{% endif %}">
+                    <div class="prediction-icon">🎯</div>
+                    <div class="prediction-label">Success Probability</div>
+                    <div class="prediction-value">{{ predictions.success_probability }}%</div>
+                    <div class="prediction-category">{{ predictions.success_category }}</div>
+                </div>
+
+                <!-- ⭐ Audience Rating -->
+                <div class="prediction-card">
+                    <div class="prediction-icon">⭐</div>
+                    <div class="prediction-label">Audience Rating</div>
+                    <div class="prediction-value">{{ predictions.rating }}</div>
+                    <div class="info-text">out of 10</div>
+                </div>
+
+                <!-- 🎬 Genre Success -->
+                <div class="prediction-card">
+                    <div class="prediction-icon">🎬</div>
+                    <div class="prediction-label">Genre Success Score</div>
+                    <div class="prediction-value">{{ predictions.genre_success_score }}</div>
+                </div>
+
+                <!-- 🧠 Critical Success -->
+                <div class="prediction-card">
+                    <div class="prediction-icon">🧠</div>
+                    <div class="prediction-label">Critical Success</div>
+                    <div class="prediction-value">{{ predictions.critical_success }}</div>
+                </div>
+
+                <!-- 💰 ROI -->
+                <div class="prediction-card">
+                    <div class="prediction-icon">💰</div>
+                    <div class="prediction-label">ROI (log scale)</div>
+                    <div class="prediction-value">{{ predictions.roi }}</div>
+                    <div class="info-text">Higher = better returns</div>
+                </div>
+            </div>
+
+            <div class="submit-wrapper">
+                <a href="/" class="submit-btn">Analyze Another Movie</a>
+            </div>
+        </main>
+        {% endif %}
+
+        <footer class="footer">
+            <p>&copy; 2025 moviescript.online — All Rights Reserved</p>
+        </footer>
+    </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const banner = document.querySelector('.loading-banner');
+            if (banner) setTimeout(() => banner.style.display = 'none', 15000);
+        });
+    </script>
+</body>
+</html>

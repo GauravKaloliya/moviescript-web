@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>moviescript.online - PREDICTING MOVIE SCRIPT SUCCESS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* 🔹 Optional inline style for the loading banner */
+        .loading-banner {
+            text-align: center;
+            font-style: italic;
+            background: #e8f0fe;
+            color: #333;
+            padding: 12px 18px;
+            margin: 15px 0 25px;
+            border-radius: 8px;
+            border: 1px solid #c7dafd;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="site-title">moviescript.online</h1>
+            <p class="site-subtitle">AI-Powered Movie Success Prediction</p>
+        </header>
+
+        <main class="main-content">
+
+            <!-- ✅ Model Loading Banner -->
+            {% if not preds %}
+            <div class="loading-banner">
+                ⚙️ <strong>Model is initializing...</strong><br>
+                This may take <b>10–15 seconds</b> during first load from Hugging Face.
+            </div>
+            {% endif %}
+
+            <form id="movieForm" class="movie-form" method="POST" action="/submit" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <!-- Story -->
+                <div class="form-group story-group">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="overview" 
+                            name="overview" 
+                            class="input-field story-input"
+                            placeholder="Describe your movie story here..."
+                            rows="10"
+                            required
+                            minlength="80"
+                            maxlength="100000"
+                        ></textarea>
+                    </div>
+                    <p class="input-hint">Tell us about your movie story (min 80 characters)</p>
+                </div>
+
+                <!-- Title -->
+                <div class="form-group">
+                    <label for="title" class="form-label">
+                        Movie Title <span class="label-required">*</span>
+                    </label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            id="title" 
+                            name="title" 
+                            class="input-field"
+                            placeholder="The Great Adventure"
+                            required
+                            minlength="3"
+                            maxlength="80"
+                        >
+                    </div>
+                </div>
+
+                <!-- Genres -->
+                <div class="form-group">
+                    <label class="form-label">
+                        Genre(s) <span class="label-required">*</span>
+                    </label>
+                    <div class="genres-container">
+                        {% for genre in genres %}
+                        <label class="genre-tag">
+                            <input type="checkbox" name="genres" value="{{ genre }}" class="genre-checkbox">
+                            <span class="genre-label">{{ genre }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Budget -->
+                <div class="form-group">
+                    <label for="budget" class="form-label">
+                        Budget (USD)
+                    </label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="number" 
+                            id="budget" 
+                            name="budget" 
+                            class="input-field"
+                            placeholder="10000000"
+                            min="100000"
+                            max="10000000000"
+                            step="1000"
+                        >
+                    </div>
+                </div>
+
+                <!-- Keywords -->
+                <div class="form-group">
+                    <label class="form-label">
+                        Tags
+                    </label>
+                    <div class="keywords-container">
+                        {% for keyword in keywords %}
+                        <label class="keyword-tag">
+                            <input type="checkbox" name="keywords" value="{{ keyword }}" class="keyword-checkbox">
+                            <span class="keyword-label">{{ keyword }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="input-wrapper custom-keywords-wrapper">
+                        <input 
+                            type="text" 
+                            id="custom_keywords" 
+                            name="custom_keywords" 
+                            class="input-field"
+                            placeholder="Add custom keywords (comma separated)"
+                        >
+                    </div>
+                </div>
+
+                <!-- Error Messages -->
+                <div id="errorMessages" class="error-messages" style="display:none;"></div>
+
+                <!-- Submit -->
+                <div class="submit-wrapper">
+                    <button type="submit" id="submitBtn" class="submit-btn">
+                        <span class="btn-text">Analyze Movie Story</span>
+                        <span class="btn-loader"></span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Result Container -->
+            <div id="resultContainer" class="result-container" style="display:none;"></div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2025 moviescript.online — All Rights Reserved</p>
+        </footer>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        window.addEventListener('load', () => {
+            const banner = document.querySelector('.loading-banner');
+            if (banner) {
+            setTimeout(() => banner.style.display = 'none', 15000);
+            }
+        });
+    </script>
+</body>
+</html>
