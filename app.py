@@ -9,6 +9,7 @@ import numpy as np
 from huggingface_hub import hf_hub_download
 import importlib.util
 import joblib
+from sentence_transformers import SentenceTransformer
 
 # ==========================================================
 # 🔧 Logging Setup
@@ -18,13 +19,19 @@ log = logging.getLogger("moviescript")
 
 
 # 1) sentence_transformers.model_card + SentenceTransformerModelCardData
+# 1) sentence_transformers.model_card + SentenceTransformerModelCardData
 fake_model_card = types.ModuleType("sentence_transformers.model_card")
+
 class SentenceTransformerModelCardData:
     def __init__(self, *args, **kwargs):
         # Minimal placeholder used only for unpickling legacy objects
         self.data = {}
 
+# Stub missing functions/classes to prevent import errors
 fake_model_card.SentenceTransformerModelCardData = SentenceTransformerModelCardData
+fake_model_card.generate_model_card = lambda *args, **kwargs: None
+
+# Register fake module
 sys.modules["sentence_transformers.model_card"] = fake_model_card
 
 # ==========================================================
